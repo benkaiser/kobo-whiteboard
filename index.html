@@ -9,6 +9,7 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>A Simple Paint Demo</title>
   <style>
     body {
@@ -37,7 +38,9 @@
       user-select: none;
     }
 
-    html, body, #content {
+    html,
+    body,
+    #content {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -57,6 +60,7 @@
       margin-right: 10px;
       border: 1px solid black;
       background-color: white;
+      overflow: hidden;
     }
 
     #canvas-holder {
@@ -111,12 +115,12 @@
     }
 
     #debug {
+      display: none;
       clear: both;
       margin-top: 10px;
       font-size: 9pt;
       height: 50px
     }
-
   </style>
   <script>
 
@@ -139,6 +143,7 @@
 
     var smudgeColorArray = null, smudgeImageData; // Data used by "Smudge" tool.
 
+    var lastState = {};
 
     /**
      *  Draws a Line, Oval, or Rectangle to the graphics context g. The shape is determined
@@ -158,92 +163,16 @@
           g.lineWidth = lineWidth;
           g.stroke();
           break;
-        case "Rectangle": // fill a rectangle with corners at (x1,y1) and (x2,y2)
-          g.fillStyle = color;
-          g.fillRect(x, y, w, h);
-          break;
-        case "Oval": // fill the oval contained in the rect with corners at (x1,y1) and (x2,y2)
-          g.save();
-          g.translate((x1 + x2) / 2, (y1 + y2) / 2);
-          g.scale(Math.abs(x1 - x2) / 2, Math.abs(y1 - y2) / 2);
-          g.beginPath();
-          g.arc(0, 0, 1, 0, 2 * Math.PI, false);
-          g.restore();
-          g.fillStyle = color;
-          g.fill();
-          break;
       }
     }
-
-
-    /**
-     *  Read the contents of a 9-by-9 square of pixels centered at (x,y), from the main canvas.
-     *  The data is obtained in an "ImageData" object.  It is copied into a Float32Array that can
-     *  be used for floating-point computations.  If that array does not already exist, it is created.
-     *  A new ImageData object is also created that will be used for putting new color data into the
-     *  image, in the swapSmudgeData function.
-     */
-    function grabSmudgeData(x, y) {
-      var colors = graphics.getImageData(x - 5, y - 5, 9, 9);
-      if (smudgeColorArray == null) {
-        smudgeImageData = graphics.createImageData(9, 9);
-        smudgeColorArray = new Float32Array(colors.data.length);
-      }
-      for (var i = 0; i < colors.data.length; i++) {
-        smudgeColorArray[i] = colors.data[i];
-      }
-    }
-
-
-    /**
-     *  The data in the smudgeColorArray, which was set in the grabSmudgeData function,
-     *  is blended with the colors in a square of pixels centered at (x,y).  Effectively,
-     *  some of the color from the array is moved to the image, and some of the color from
-     *  the image is moved to the array.  The effect is that the smudgeColorArray carries
-     *  color from the point where the mouse was first pressed and drops some of that color
-     *  at each point that is visited by the mouse as it moves (while picking up some
-     *  new color from those points.)
-     */
-    function swapSmudgeData(x, y) {
-      var colors = graphics.getImageData(x - 5, y - 5, 9, 9);  // get color data form image
-      for (var i = 0; i < smudgeColorArray.length; i += 4) {
-        // The color arrays contain four numbers for each pixel, giving red, blue,
-        // green, and alpha color components.  An alpha value of 0 means that the
-        // pixel was outside the image; such pixels are ignored.  Otherwise,
-        // the red, green, and blue components in the two color arrays,
-        // smudgeColorArray and colors.data, are replaced by weighted averages
-        // of the existing values.  The alpha component is simply set to 255 (fully
-        // opaque), which is actually what it should already be.
-        if (smudgeColorArray[i + 3] && colors.data[i + 3]) {
-          for (var j = i; j < i + 3; j++) {
-            var newSmudge = smudgeColorArray[j] * 0.8 + colors.data[j] * 0.2;
-            var newImage = smudgeColorArray[j] * 0.2 + colors.data[j] * 0.8;
-            smudgeImageData.data[j] = newImage;
-            smudgeColorArray[j] = newSmudge;
-          }
-          smudgeImageData.data[i + 3] = 255;
-        }
-        else {
-          for (var j = i; j <= i + 3; j++) {
-            smudgeImageData.data[j] = 0; // "transparent black"; will have no effect on the image
-          }
-        }
-      }
-      graphics.putImageData(smudgeImageData, x - 5, y - 5);
-    }
-
 
     /**
      *  Applies the "Erase" or "Smudge" tool at the point (x,y), as the mouse is being dragged.
      */
     function applyTool(tool, x, y) {
-      if (tool == "Erase") { // Clear a 10-by-10 square, centered at (x,y).
+      if (tool == "Erase") { // Clear a 50-by-50 square, centered at (x,y).
         graphics.fillStyle = "white";
-        graphics.fillRect(x - 5, y - 5, 10, 10);  // Erase the sqaure in the BufferedImage.
-      }
-      else { // For the "Smudge" tool, mix some of the "paint" on the tool with the image,
-        // in a 7-by-7 square centered at x,y.
-        swapSmudgeData(x, y);
+        graphics.fillRect(x - 5, y - 5, 50, 50);  // Erase the sqaure in the BufferedImage.
       }
     }
 
@@ -316,13 +245,18 @@
         prevX = startX = x;
         prevY = startY = y;
         dragging = true;
+        lastState = {
+          tool: tool,
+          color: color,
+          lineWidth: lineWidth,
+          startX: startX,
+          startY: startY,
+          points: []
+        };
         document.addEventListener("mousemove", doMouseMove);
         document.addEventListener("mouseup", doMouseUp);
         if (tool == "Erase") {
           applyTool("Erase", startX, startY);
-        }
-        else if (tool == "Smudge") {
-          grabSmudgeData(startX, startY);
         }
         evt.preventDefault();
       }
@@ -331,14 +265,11 @@
           var r = canvas.getBoundingClientRect();
           var x = Math.round(evt.clientX - r.left);
           var y = Math.round(evt.clientY - r.top);
-          if (tool == "Line" || tool == "Oval" || tool == "Rectangle") {
-            overlayGraphics.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            putShape(overlayGraphics, tool, startX, startY, x, y);
-          }
-          else if (tool == "Sketch") {
+          lastState.points.push({ fromX: prevX, fromY: prevY, toX: x, toY: y });
+          if (tool == "Sketch") {
             putShape(graphics, "Line", prevX, prevY, x, y);
           }
-          else if (tool == "Erase" || tool == "Smudge") {
+          else if (tool == "Erase") {
             applyToolAlongLine(tool, prevX, prevY, x, y);
           }
           prevX = x;
@@ -350,9 +281,9 @@
           document.removeEventListener("mousemove", doMouseMove);
           document.removeEventListener("mouseup", doMouseUp);
           dragging = false;
-          if (tool == "Line" || tool == "Oval" || tool == "Rectangle") {
-            overlayGraphics.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            putShape(graphics, tool, startX, startY, prevX, prevY);
+          if (lastState.points.length > 0) {
+            sendState(lastState);
+            lastState = {};
           }
         }
       }
@@ -370,15 +301,20 @@
         var y = Math.round(evt.touches[0].clientY - r.top);
         prevX = startX = x;
         prevY = startY = y;
+        lastState = {
+          tool: tool,
+          color: color,
+          lineWidth: lineWidth,
+          startX: startX,
+          startY: startY,
+          points: []
+        };
         touchStarted = true;
         overlayCanvas.addEventListener("touchmove", doTouchMove);
         overlayCanvas.addEventListener("touchend", doTouchEnd);
         overlayCanvas.addEventListener("touchcancel", doTouchCancel);
         if (tool == "Erase") {
           applyTool("Erase", startX, startY);
-        }
-        else if (tool == "Smudge") {
-          grabSmudgeData(startX, startY);
         }
       }
       function doTouchMove(evt) {
@@ -390,20 +326,20 @@
         var r = canvas.getBoundingClientRect();
         var x = Math.round(evt.touches[0].clientX - r.left);
         var y = Math.round(evt.touches[0].clientY - r.top);
-        if (tool == "Line" || tool == "Oval" || tool == "Rectangle") {
-          overlayGraphics.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-          putShape(overlayGraphics, tool, startX, startY, x, y);
-        }
-        else if (tool == "Sketch") {
+        lastState.points.push({ fromX: prevX, fromY: prevY, toX: x, toY: y });
+        if (tool == "Sketch") {
           putShape(graphics, "Line", prevX, prevY, x, y);
-        }
-        else if (tool == "Erase" || tool == "Smudge") {
+        } else if (tool == "Erase") {
           applyToolAlongLine(tool, prevX, prevY, x, y);
         }
         prevX = x;
         prevY = y;
       }
       function doTouchEnd(evt) {
+        if (lastState.points.length > 0) {
+          sendState(lastState);
+          lastState = {};
+        }
         doTouchCancel();
       }
       function doTouchCancel() {
@@ -412,19 +348,15 @@
           overlayCanvas.removeEventListener("touchmove", doTouchMove);
           overlayCanvas.removeEventListener("touchend", doTouchEnd);
           overlayCanvas.removeEventListener("touchcancel", doTouchCancel);
-          if (tool == "Line" || tool == "Oval" || tool == "Rectangle") {
-            overlayGraphics.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            putShape(graphics, tool, startX, startY, prevX, prevY);
-          }
         }
       }
       overlayCanvas.addEventListener("mousedown", doMouseDown);
       overlayCanvas.addEventListener("touchstart", doTouchStart);
     }
 
-function printDebug(message) {
-  document.getElementById("debug").innerHTML = message;
-}
+    function printDebug(message) {
+      document.getElementById("debug").innerHTML = message;
+    }
 
     /**
      * The init() funciton is called after the page has been
@@ -469,12 +401,126 @@ function printDebug(message) {
       document.getElementById("clear").onclick = function () {
         graphics.fillStyle = "white";
         graphics.fillRect(0, 0, canvas.width, canvas.height);
+        sendClear();
       };
+      document.getElementById("fullscreen").onclick = function () {
+        document.getElementById('tools').style.display = 'none';
+      }
+      document.getElementById("rotate").onclick = function() {
+        // reset if we're already rotated
+        if (window.location.search.indexOf('rotate=true') !== -1) {
+          window.location.href = window.location.pathname;
+          return;
+        }
+        // reload with query param 'rotate=true'
+        window.location.href = window.location.pathname + '?rotate=true';
+      };
+
+      function rotateCanvas() {
+        graphics.rotate(270 * Math.PI / 180);
+        graphics.translate(-955, 0);
+      }
+
+      if (window.location.search.indexOf('rotate=true') !== -1) {
+        rotateCanvas();
+      }
 
       document.getElementById("reload").onclick = function () {
         window.location.reload();
       }
+
+      function onResize() {
+        var boundingRect = canvas.getBoundingClientRect();
+        canvas.width = Math.floor(boundingRect.width);
+        canvas.height = Math.floor(boundingRect.height);
+        overlayCanvas.width = Math.floor(boundingRect.width);
+        overlayCanvas.height = Math.floor(boundingRect.height);
+
+        if (window.location.search.indexOf('rotate=true') !== -1) {
+          graphics.reset();
+          rotateCanvas();
+          mySocket.close();
+        }
+      }
+
+      function debounceResize() {
+        var timeout;
+        return function() {
+          clearTimeout(timeout);
+          timeout = setTimeout(function() {
+            timeout = null;
+            onResize();
+          }, 300);
+        }
+      }
+
+      window.addEventListener('resize', debounceResize(), false);
     }
+
+    function drawStateItem(state) {
+      if (state.tool === 'Sketch') {
+        graphics.strokeStyle = state.color;
+        graphics.lineWidth = state.lineWidth;
+        graphics.beginPath();
+        graphics.moveTo(state.startX, state.startY);
+        for (var i = 0; i < state.points.length; i++) {
+          graphics.lineTo(state.points[i].toX, state.points[i].toY);
+        }
+        graphics.stroke();
+      } else if (state.tool === 'Erase') {
+        graphics.fillStyle = "white";
+        graphics.fillRect(state.startX - 5, state.startY - 5, 50, 50);
+        for (var i = 0; i < state.points.length; i++) {
+          graphics.fillRect(state.points[i].toX - 5, state.points[i].toY - 5, 50, 50);
+        }
+      }
+    }
+
+    function drawState(state) {
+      for (var i = 0; i < state.length; i++) {
+        drawStateItem(state[i]);
+      }
+    }
+
+    var sendState = function () { };
+    var sendClear = function () { };
+    var mySocket;
+
+    function initWebsocket() {
+      // create websocket instance
+      mySocket = new WebSocket("ws://" + window.location.host + "/");
+
+      // add event listener reacting when message is received
+      mySocket.onmessage = function (event) {
+        var data = JSON.parse(event.data);
+        if (data.type === 'clear') {
+          graphics.fillStyle = "white";
+          graphics.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        if (data.type === 'addState') {
+          drawStateItem(data.state);
+        } if (data.type === 'state') {
+          drawState(data.state);
+        }
+      };
+      mySocket.onopen = function (event) {
+        mySocket.send(JSON.stringify({ "type": "join", "room": "1234" }));
+        sendState = function (state) {
+          mySocket.send(JSON.stringify({ "type": "addState", "state": state }));
+        }
+        sendClear = function () {
+          mySocket.send(JSON.stringify({ "type": "clear" }));
+        }
+      };
+
+      mySocket.onclose = function(event) {
+        setTimeout(function() {
+          initWebsocket();
+        }, 1000);
+      }
+    };
+
+    window.addEventListener("load", initWebsocket);
 
   </script>
 </head>
@@ -482,7 +528,7 @@ function printDebug(message) {
 <body onload="init()">
 
   <div id="content">
-    <h3>Simple Paint Demo 4</h3>
+    <!-- <h3>Simple Paint Demo 4</h3> -->
 
     <noscript>
       <!-- This message will be shown in the page if JavaScript is not available. -->
@@ -494,18 +540,18 @@ function printDebug(message) {
     <div id="tools">
 
       <div class="tool">
-      <label><b>Drawing Tool:</b>
+        <label><b>Tool:</b>
           <select id="tool">
             <option>Sketch</option>
-            <option>Line</option>
+            <!-- <option>Line</option>
             <option>Rectangle</option>
-            <option>Oval</option>
+            <option>Oval</option> -->
             <option>Erase</option>
-            <option>Smudge</option>
+            <!-- <option>Smudge</option> -->
           </select></label>
       </div>
 
-      <div class="tool"><label><b>Drawing Color:</b>
+      <div class="tool"><label><b>Color:</b>
           <select id="color">
             <option>Black</option>
             <option>Red</option>
@@ -533,6 +579,10 @@ function printDebug(message) {
           </select></label></div>
 
       <div class="tool"><button id="clear">Clear</button></div>
+
+      <div class="tool"><button id="rotate">Rotate</button></div>
+
+      <div class="tool"><button id="fullscreen">Fullscreen</button></div>
 
       <div class="tool"><button id="reload">Reload</button></div>
 

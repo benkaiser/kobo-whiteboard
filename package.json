@@ -1,0 +1,17 @@
+{
+  "name": "kobo-paint",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Benjamin Kaiser",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-ws": "^5.0.2"
+  }
+}
