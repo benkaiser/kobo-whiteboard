@@ -3,6 +3,11 @@ var app = express();
 var expressWs = require('express-ws')(app);
 
 app.get('/', function(req, res){
+  // random 4 digit number
+  res.redirect('/r/' + Math.floor(Math.random() * 9000 + 1000));
+});
+
+app.get('/r/:room', function(req, res){
   res.sendFile('index.html', { root: __dirname });
 });
 
@@ -49,5 +54,20 @@ app.ws('/', function(ws, req) {
   ws.id = req.headers['sec-websocket-key'];
   console.log('socket', ws.id);
 });
+
+// cleanup rooms every hour
+setInterval(function() {
+  const rooms = expressWs.getWss().clients.reduce(function(rooms, client) {
+    if (client.room) {
+      rooms[client.room] = true;
+    }
+    return rooms;
+  }, {});
+  Object.keys(roomState).forEach(function(room) {
+    if (!rooms[room]) {
+      delete roomState[room];
+    }
+  });
+}, 1000 * 60 * 60);
 
 app.listen(8080);

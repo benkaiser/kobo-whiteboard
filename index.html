@@ -504,7 +504,7 @@
         }
       };
       mySocket.onopen = function (event) {
-        mySocket.send(JSON.stringify({ "type": "join", "room": "1234" }));
+        mySocket.send(JSON.stringify({ "type": "join", "room": window.location.pathname.substring(1) }));
         sendState = function (state) {
           mySocket.send(JSON.stringify({ "type": "addState", "state": state }));
         }
