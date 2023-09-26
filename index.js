@@ -70,4 +70,4 @@ setInterval(function() {
   });
 }, 1000 * 60 * 60);
 
-app.listen(8080);
+app.listen(process.env.PORT || 8080);
