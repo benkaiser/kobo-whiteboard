@@ -488,7 +488,7 @@
 
     function initWebsocket() {
       // create websocket instance
-      mySocket = new WebSocket("ws://" + window.location.host + "/");
+      mySocket = new WebSocket((location.protocol === 'https:' ? "wss://" : "ws://") + window.location.host + "/");
 
       // add event listener reacting when message is received
       mySocket.onmessage = function (event) {
