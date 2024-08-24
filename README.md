@@ -10,6 +10,18 @@ There is an instance of it hosted at [kobo.kaiser.lol](https://kobo.kaiser.lol/)
 
 To use it, visit the website on your kobo, this will automatically redirect you into a "room" with a unique URL. You can then open that same URL on your computer and draw on the same canvas. You can also share the URL with others to allow them to draw on the same canvas.
 
+### Docker execution
+
+To run the server, you can use the provided Dockerfile. To build and run the server, you can use the following commands:
+
+```bash
+docker build -t kobo-whiteboard .
+
+docker run -p 8080:8080 kobo-whiteboard
+```
+
+This will start the server on port 8080. You can then access the server at `http://localhost:8080/`.
+
 ## Limitations
 
 There are a bunch of limitations currently, that anyone is more than welcome to help out by submitting a pull request.
