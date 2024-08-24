@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const expressWs = require('express-ws')(app);
+const rateLimit = require('express-rate-limit');
 
 const roomState = {};
 
@@ -8,6 +9,17 @@ const roomState = {};
 function generateRoomNumber() {
   return Math.floor(Math.random() * 9000 + 1000);
 }
+
+// Configure the rate limiter
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (15 minutes)
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply the rate limiter to all requests
+app.use(limiter);
 
 // Route to redirect to a random room
 app.get('/', (req, res) => {
